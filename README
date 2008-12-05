@@ -1,0 +1,83 @@
+CustomChangeMessages
+====================
+
+CustomChangeMessages is a rails plugin for extending the dirty objects methods introduced in rails 2.1
+http://ryandaigle.com/articles/2008/3/31/what-s-new-in-edge-rails-dirty-objects
+It provides customizable messages for the changed attributes on a record, and works nicely with any foriegn
+keys that are a belongs_to association.
+
+ActiveRecord extensions:
+
+change_message_for(attribute) # Returns a string message representation of the attribute that has changed
+change_messages # Returns an array of the messages for each changed attribute
+
+Installation
+============
+
+installation: script/plugin install git://github.com/jeremyolliver/custom_message_changes.git
+
+Requirements: rails v2.1 or greater, if you use an earlier version check out either:
+modelnotifier http://github.com/jeremyolliver/modelnotifier/tree/master The original version of this plugin
+or http://code.bitsweat.net/svn/dirty a plugin that implements the code for dirty models introduced in 2.1 that
+CustomChangeMesssages relies on.
+
+Example
+=======
+
+The main use of this is to help clean up controller actions, such as:
+
+class ItemsController < ApplicationController
+
+  def update
+    @item.attributes = params[:item]
+    Mailer.deliver_item_update(@item, @item.change_messages.to_sentence)
+    @item.save!
+
+  rescue ActiveRecord::RecordInvalid => e
+    flash[:error] = e.reord.error_messages
+    redirect_to item_url(@item)
+  end
+  #...
+end
+
+
+@item.change_messages.to_sentence will return human readable mesages such as:
+=> "Description has changed from 'Nice and easy' to 'This task is now rather long and arduous', User has changed from 'Jeremy' to 'Guy', and Due Date has been rescheduled from '09/11/2008' to '10/11/2008'"
+
+The messages for each attribute are also customizable, which is especially handy for dealing with belongs_to
+assocations. Here's a more complicated example:
+
+Use the custom_message_for method to customize the message for the attribute, specifying :display => :name
+will use the method/attribute :name for displaying the record that the item belongs_to
+
+The skip_message_for method can be used to prevent stop any changes to a particular attribute showing up
+
+class Item < ActiveRecord::Base
+  belongs_to :person
+  
+  custom_message_for :person, :display => :username # display the person's username instead of the id
+  custom_message_for :due_on, :as => "Due Date", :message => "has been rescheduled", :format => :pretty_print_date
+  # change the syntax of the message for working with dates, because it makes more sense that way
+  
+  # this method is used for formatting the due_on field when it changes
+  def pretty_print_date(value = self.due_on)
+    value.strftime("%d/%m/%Y")
+  end
+end
+
+class Person < ActiveRecord::Base
+  custom_message_for :username, :as => "Name"
+  skip_message_for :internal_calculation    
+end
+
+p = Person.create!(:username => "Jeremy")
+p2 = Person.create!(:username => "Optimus Prime")
+i = Item.create!(:name => "My Task", :description => nil, :person => p, :due_on => Date.today)
+i.attributes = {:person => p2, :description => "This task is now rather long and arduous"}
+
+i.change_messages
+=> ["Due Date has been rescheduled from '4/12/2008' to '5/12/2008'", "Person has changed from 'Jeremy' to 'Optimus Prime'", "Description has changed from '' to 'This task is now rather long and arduous'"]
+
+
+
+Copyright (c) 2008 Jeremy Olliver, released under the MIT license
