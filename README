@@ -1,10 +1,25 @@
 CustomChangeMessages
 ====================
 
-CustomChangeMessages is a rails plugin for extending the dirty objects methods introduced in rails 2.1
-http://ryandaigle.com/articles/2008/3/31/what-s-new-in-edge-rails-dirty-objects
-It provides customizable messages for the changed attributes on a record, and works nicely with any foriegn
-keys that are a belongs_to association.
+CustomChangeMessages is a rails plugin for providing a nicely formatted log message recording any edits made to an active record object.
+This is based off of the ActiveRecord::Dirty module, making this plugin compatible with rails versions 2.1 and up. There is minimal configuration required, with all columns (except for id, and created_at, updated_at timestamps) included by default, and belongs_to associations handled nicely
+
+Usage
+=====
+
+# In a controllers #update action
+
+def update
+	@post = Post.find(params[:id])
+	@post.attributes = params[:post]
+	@changes = @post.change_messages
+	# Use this array to either log history, display in a flash message, or in a mailer.
+	# => ["Title has changed from 'Ruby on Rails plugin' to '[Update] Ruby on Rails plugin'", "Category has changed from 'Ruby' to 'Ruby on Rails'"]
+	@post.save!
+end
+
+API
+===
 
 ActiveRecord extensions:
 
@@ -16,13 +31,11 @@ Installation
 
 installation: script/plugin install git://github.com/jeremyolliver/custom_message_changes.git
 
-Requirements: rails v2.1 or greater, if you use an earlier version check out either:
-modelnotifier http://github.com/jeremyolliver/modelnotifier/tree/master The original version of this plugin
-or http://code.bitsweat.net/svn/dirty a plugin that implements the code for dirty models introduced in 2.1 that
-CustomChangeMesssages relies on.
+Requirements: rails 2.1 or greater, if you use an earlier version you can try using http://code.bitsweat.net/svn/dirty which backports the ActiveRecord::Dirty code that this plugin depends on to earlier rails versions.
 
-Example
-=======
+
+Detailed Example
+================
 
 The main use of this is to help clean up controller actions, such as:
 
