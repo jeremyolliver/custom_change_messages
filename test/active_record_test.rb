@@ -106,12 +106,12 @@ class ActiveRecordTest < Test::Unit::TestCase
     p = Person.create!(:username => "Jeremy")
     p2 = Person.create!(:username => "Optimus")
     i = Item.create!(:name => "My Task", :description => "Nice and easy", :person => p, :due_on => Date.today)
-    i.attributes = {:person => p2, :description => "This task is now rather long and arduous", :due_on => Date.tomorrow }
+    i.attributes = {:person => p2, :description => "This task is difficult, might need some help", :due_on => Date.tomorrow }
     
     today = Date.today.strftime(Item::DATEFORMAT)
     tomorrow = Date.tomorrow.strftime(Item::DATEFORMAT)
     
-    assert_equal "Description has changed from 'Nice and easy' to 'This task is now rather long and arduous', Person has changed from 'Jeremy' to 'Optimus', and Due Date has been rescheduled from '#{today}' to '#{tomorrow}'", \
+    assert_equal "Description has changed from 'Nice and easy' to 'This task is difficult, might need some help', Person has changed from 'Jeremy' to 'Optimus', and Due Date has been rescheduled from '#{today}' to '#{tomorrow}'", \
     i.change_messages.to_sentence
   end
   

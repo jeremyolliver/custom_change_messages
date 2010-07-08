@@ -86,10 +86,10 @@ end
 p = Person.create!(:username => "Jeremy")
 p2 = Person.create!(:username => "Optimus Prime")
 i = Item.create!(:name => "My Task", :description => nil, :person => p, :due_on => Date.today)
-i.attributes = {:person => p2, :description => "This task is now rather long and arduous"}
+i.attributes = {:person => p2, :description => "This task is difficult, might need some help"}
 
 i.change_messages
-=> ["Due Date has been rescheduled from '4/12/2008' to '5/12/2008'", "Person has changed from 'Jeremy' to 'Optimus Prime'", "Description has changed from '' to 'This task is now rather long and arduous'"]
+=> ["Due Date has been rescheduled from '4/12/2008' to '5/12/2008'", "Person has changed from 'Jeremy' to 'Optimus Prime'", "Description has changed from '' to 'This task is difficult, might need some help'"]
 
 
 
