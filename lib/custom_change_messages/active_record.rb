@@ -7,6 +7,8 @@ ActiveRecord::Base.class_eval do
   CUSTOM_CHANGE_MESSAGE_DEFAULTS = {:message => "has changed", :prefix => "from", :suffix => "to"}
   DEFAULT_SKIPPED_COLUMNS = [:updated_at, :created_at, :id]
   
+  DEFAULT_BELONGS_TO_DISPLAY_OPTIONS = [:name, :title, :display, :description]
+  
   class << self
   
     def initialise_default_change_messages
@@ -19,14 +21,16 @@ ActiveRecord::Base.class_eval do
         # Don't include foreign keys for belongs_to associations by default, they must be added manually
         self.reflect_on_all_associations(:belongs_to).each do |association|
           #self.custom_dirty_messages[association.name.to_sym] = {:type => :belongs_to, :association_name => association.name, :as => association.name.to_s.humanize.titleize}
-          model_columns -= [association.primary_key_name.to_sym] # Remove the key name from the attributes that will be watched by default
+          # model_columns -= [association.primary_key_name.to_sym] # Remove the key name from the attributes that will be watched by default
           self.belongs_to_key_mapping.merge!(association.primary_key_name.to_sym => association.name)
         end
         
         # Register each column with default options
         model_columns.each do |column_name|
-          next if DEFAULT_SKIPPED_COLUMNS.include?(column_name)
-          custom_dirty_messages[column_name] = CUSTOM_CHANGE_MESSAGE_DEFAULTS.clone
+          key = key_name_for(column_name)
+          next if DEFAULT_SKIPPED_COLUMNS.include?(key)
+          # custom_dirty_messages[key] = CUSTOM_CHANGE_MESSAGE_DEFAULTS.clone
+          custom_message_for(key)
         end
       end
     end
@@ -42,8 +46,13 @@ ActiveRecord::Base.class_eval do
         
         if is_association?(key)
           association = self.reflect_on_association(key)
-          puts "Warning :display option not set in options for #{self.to_s}#custom_message_for :#{key.to_s} #to_s will be used as the default" unless options[:display]
-          defaults = {:as => association.name.to_s.humanize.titleize, :display => :to_s}
+          display_method = options[:display]
+          raise "Incorrect :display option. #{display_method} is undefined for #{association.class_name}" if display_method && !method_or_attribute_exists(association, display_method)
+          display_method ||= find_default_display_method(association)
+          puts "***Warning*** couldn't detect a display method for #{key.to_s}, please set a display option e.g. custom_message_for :#{key.to_s}, :display => :my_display_method (where #{association.class_name}#my_display_method) is defined otherwise #to_s will be used as the default" unless display_method
+          display_method ||= :to_s
+          
+          defaults = CUSTOM_CHANGE_MESSAGE_DEFAULTS.merge({:as => association.name.to_s.humanize.titleize, :display => :to_s})
           options = defaults.merge(options).merge({:type => :belongs_to})
         end
         
@@ -79,6 +88,20 @@ ActiveRecord::Base.class_eval do
       else
         attribute
       end
+    end
+    
+    private
+    
+    def method_or_attribute_exists(association, method)
+      klass = association.class_name.constantize
+      (klass.column_names + klass.instance_methods).include?(method.to_s)
+    end
+    
+    def find_default_display_method(association)
+      DEFAULT_BELONGS_TO_DISPLAY_OPTIONS.each do |meth_name|
+        return meth_name if method_or_attribute_exists(association, meth_name)
+      end
+      nil
     end
     
   end

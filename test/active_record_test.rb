@@ -52,7 +52,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     
     i.category = c2
     
-    assert i.change_messages.empty? # The belongs_to association (and it's foreign key) should be ignored by default
+    assert_equal ["Category has changed from 'Updates' to 'Posts'"], i.change_messages # The belongs_to association (and it's foreign key) should be ignored by default
   end
   
   def test_unwatching
