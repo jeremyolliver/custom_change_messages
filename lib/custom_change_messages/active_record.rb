@@ -20,7 +20,6 @@ ActiveRecord::Base.class_eval do
         
         # Don't include foreign keys for belongs_to associations by default, they must be added manually
         self.reflect_on_all_associations(:belongs_to).each do |association|
-          #self.custom_dirty_messages[association.name.to_sym] = {:type => :belongs_to, :association_name => association.name, :as => association.name.to_s.humanize.titleize}
           # model_columns -= [association.primary_key_name.to_sym] # Remove the key name from the attributes that will be watched by default
           self.belongs_to_key_mapping.merge!(association.primary_key_name.to_sym => association.name)
         end
