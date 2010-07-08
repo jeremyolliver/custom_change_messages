@@ -1,130 +1,147 @@
 ActiveRecord::Base.class_eval do
   
   # hash and array to keep track of the customised messages, belongs_to associations, and any skipped attributes
-  class_inheritable_hash :custom_dirty_messages
-  class_inheritable_array :skipped_dirty_attributes
-  class_inheritable_hash :skipped_belongs_to_attributes
+  class_inheritable_hash :custom_dirty_messages # The watched attributes with configuration options {:field_name => options, ...}
+  class_inheritable_hash :belongs_to_key_mapping
+  
+  CUSTOM_CHANGE_MESSAGE_DEFAULTS = {:message => "has changed", :prefix => "from", :suffix => "to"}
+  DEFAULT_SKIPPED_COLUMNS = [:updated_at, :created_at, :id]
   
   class << self
   
-    def init_messages
+    def initialise_default_change_messages
       unless self.custom_dirty_messages
         self.custom_dirty_messages = {}
-        self.skipped_belongs_to_attributes = {}
+        self.belongs_to_key_mapping = {}
+        
+        model_columns = self.column_names.collect(&:to_sym)
+        
+        # Don't include foreign keys for belongs_to associations by default, they must be added manually
         self.reflect_on_all_associations(:belongs_to).each do |association|
-          #self.custom_dirty_messages[association.name.to_sym] = {:type => :belongs_to, :association_name => association.name, :as => association.name.to_s.capitalize}
-          skipped_belongs_to_attributes.merge!(association.primary_key_name.to_sym => association.name)
+          #self.custom_dirty_messages[association.name.to_sym] = {:type => :belongs_to, :association_name => association.name, :as => association.name.to_s.humanize.titleize}
+          model_columns -= [association.primary_key_name.to_sym] # Remove the key name from the attributes that will be watched by default
+          self.belongs_to_key_mapping.merge!(association.primary_key_name.to_sym => association.name)
+        end
+        
+        # Register each column with default options
+        model_columns.each do |column_name|
+          next if DEFAULT_SKIPPED_COLUMNS.include?(column_name)
+          custom_dirty_messages[column_name] = CUSTOM_CHANGE_MESSAGE_DEFAULTS.clone
         end
       end
     end
   
     def custom_message_for(*attr_names)
-      init_messages
+      initialise_default_change_messages
+      
       options = attr_names.extract_options!
+      options.symbolize_keys!
+
       attr_names.each do |attribute|
-        if skipped_belongs_to_attributes.values.include?(attribute.to_sym)
-          association = self.reflect_on_association(attribute.to_sym)
-          self.custom_dirty_messages[association.name.to_sym] = ({:type => :belongs_to, :association_name => association.name, :as => association.name.to_s.capitalize}).merge(options)
+        key = key_name_for(attribute)
+        
+        if is_association?(key)
+          association = self.reflect_on_association(key)
+          puts "Warning :display option not set in options for #{self.to_s}#custom_message_for :#{key.to_s} #to_s will be used as the default" unless options[:display]
+          defaults = {:as => association.name.to_s.humanize.titleize, :display => :to_s}
+          options = defaults.merge(options).merge({:type => :belongs_to})
+        end
+        
+        if self.custom_dirty_messages[key]
+          # override defaults
+          self.custom_dirty_messages[key].merge!(options)
         else
-          key = key_for(attribute)
-          if self.custom_dirty_messages[key]
-            # if options are being passed for an associations attribute, or an association
-            self.custom_dirty_messages[key].merge!(options)
-          else
-            self.custom_dirty_messages.merge!({attribute.to_sym => options})
-          end
+          # Set values for any not already being watched
+          self.custom_dirty_messages.merge!({key => options})
         end
       end
     end
   
     def skip_message_for(*attr_names)
-      self.skipped_dirty_attributes ||= [:updated_at, :created_at, :id]
+      initialise_default_change_messages
+      
       attr_names.extract_options!
-      self.skipped_dirty_attributes += attr_names
-    end
-  
-    private
-  
-    def key_for(attribute)
-      # first check if it's a belongs_to association
-      if (assoc = self.reflect_on_association(attribute.to_sym))
-        assoc.name.to_sym
-      else
-        attribute.to_sym
+      attr_names.each do |column_name|
+        key = key_name_for(column_name)
+        self.custom_dirty_messages.delete(key)
       end
     end
+    
+    def is_association?(attribute)
+      belongs_to_key_mapping.keys.include?(attribute.to_sym) || belongs_to_key_mapping.values.include?(attribute.to_sym)
+    end
   
+    def key_name_for(attribute)
+      attribute = attribute.to_sym
+      if is_association?(attribute)
+        # Use the association name for belongs_to (could be already passed in)
+        belongs_to_key_mapping[attribute] || attribute
+      else
+        attribute
+      end
+    end
+    
   end
   
   def change_messages
+    self.class.initialise_default_change_messages
+    
     messages = []
     changes.each do |attribute, diff|
-      attribute = attribute.to_sym
-      self.class.skipped_dirty_attributes ||= [:updated_at, :created_at, :id]
-      next if self.class.skipped_dirty_attributes.include?(attribute)
-      if self.class.skipped_belongs_to_attributes.keys.include?(attribute)
-        messages << change_message_for(self.class.skipped_belongs_to_attributes[attribute], diff)
-      else
-        messages << change_message_for(attribute, diff)
+      key = self.class.key_name_for(attribute) # belongs_to association name, or column_name
+      
+      if self.class.custom_dirty_messages.keys.include?(key)
+        messages << change_message_for(key, diff)
       end
     end
     messages
   end
   
   def change_message_for(attribute, changes = nil)
-    changes ||= self.send((ar_key_for(attribute).to_s + "_change").to_sym)
+    self.class.initialise_default_change_messages
     
-    attribute = key_for(attribute)
+    column_name = column_name_for(attribute)
+    changes ||= self.send((column_name.to_s + "_change").to_sym)
     
-    val = "#{attr_name(attribute)} #{watch_value(attribute, :message)}"
-    val += " #{watch_value(attribute, :prefix)} \'#{attr_display(attribute, changes.first)}\'" unless watch_value(attribute, :no_prefix)
-    val += " #{watch_value(attribute, :suffix)} \'#{attr_display(attribute, changes.last)}\'" unless watch_value(attribute, :no_suffix)
+    key = self.class.key_name_for(attribute)
+    
+    val = "#{attr_name(key)} #{message_option_value(key, :message)}"
+    val += " #{message_option_value(key, :prefix)} \'#{attr_display(key, changes.first)}\'" unless message_option_value(key, :no_prefix)
+    val += " #{message_option_value(key, :suffix)} \'#{attr_display(key, changes.last)}\'" unless message_option_value(key, :no_suffix)
     val
   end
   
   private
   
-  def key_for(attribute)
-    # first check if it's a belongs_to association
-    if (assoc = self.class.reflect_on_association(attribute))
-      assoc.name.to_sym
+  def column_name_for(attribute)
+    attribute = attribute.to_sym
+    if self.class.belongs_to_key_mapping.values.include?(attribute)
+      self.class.belongs_to_key_mapping.to_a.select {|col, assoc_name| assoc_name == attribute }.first.first
     else
-      attribute.to_sym
-    end
-  end
-  
-  def ar_key_for(attribute)
-    # first check if it's a belongs_to association
-    if (assoc = self.class.reflect_on_association(attribute))
-      assoc.primary_key_name.to_sym
-    else
-      attribute.to_sym
+      attribute
     end
   end
   
   # check if it's an association name, or if the attribute is being watched
-  def attr_name(attribute)
-    if self.class.custom_dirty_messages[attribute]
-      if (name = self.class.custom_dirty_messages[attribute][:as])
+  def attr_name(key)
+    value = if self.class.custom_dirty_messages[key]
+      if (name = self.class.custom_dirty_messages[key][:as])
         name
-      elsif is_association?(attribute)
-        (n = self.class.custom_dirty_messages[attribute][:association_name]) ? n.to_s.capitalize : attribute.to_s.capitalize
       else
-        attribute.to_s.capitalize
+        key
       end
     else
-      attribute.to_s.capitalize
+      key
     end
+    value.to_s.humanize.titleize
   end
   
-  def attr_display(attribute, value)
-    attribute = key_for(attribute)
-    if self.class.custom_dirty_messages[attribute]
-      if (meth = self.class.custom_dirty_messages[attribute.to_sym][:format])
+  def attr_display(key, value)
+    if self.class.custom_dirty_messages[key]
+      if (meth = self.class.custom_dirty_messages[key][:format])
         return self.send(meth, value)
-      elsif (meth = self.class.custom_dirty_messages[attribute.to_sym][:display]) || is_association?(attribute)
-        raise ":display option set on an attribute which isn't a belongs_to association" unless is_association?(attribute)
-        assoc = self.class.reflect_on_association(association_name(attribute))
+      elsif (meth = self.class.custom_dirty_messages[key][:display]) && self.class.is_association?(key)
+        assoc = self.class.reflect_on_association(key)
         raise "must set the :display option for belongs_to associations e.g. :display => :name where name is a method on the parent object" unless meth
         finder = ("find_by_" + assoc.klass.primary_key).to_sym
         return assoc.klass.send(finder, value).send(meth.to_sym)
@@ -133,25 +150,12 @@ ActiveRecord::Base.class_eval do
     return value.to_s
   end
   
-  def association_name(attribute)
-    self.class.custom_dirty_messages[attribute][:association_name]
-  end
-  
-  def is_association?(attribute)
-    attribute = key_for(attribute)
-    self.class.custom_dirty_messages[attribute][:association_name]
-  end
-  
-  def watch_value(attribute, option)
-    if self.class.custom_dirty_messages[attribute.to_sym]
-      self.class.custom_dirty_messages[attribute.to_sym][option] || watch_option_defaults[option]
+  def message_option_value(key, option)
+    if self.class.custom_dirty_messages[key]
+      self.class.custom_dirty_messages[key][option] || CUSTOM_CHANGE_MESSAGE_DEFAULTS[option]
     else
-      watch_option_defaults[option]
+      CUSTOM_CHANGE_MESSAGE_DEFAULTS[option]
     end
-  end
-  
-  def watch_option_defaults
-    {:message => "has changed", :prefix => "from", :suffix => "to"}
   end
   
   

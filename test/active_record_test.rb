@@ -41,7 +41,7 @@ class ActiveRecordTest < Test::Unit::TestCase
   def test_ignores_timestamps
     i = Item.create!
     i.attributes = {:created_at => Date.tomorrow, :updated_at => Date.tomorrow}
-    puts i.change_messages
+    
     assert i.change_messages.empty?
   end
   
@@ -52,8 +52,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     
     i.category = c2
     
-    assert_nil i.change_message_for(:category) # An error should be raised if the display is not set for a belongs_to
-    assert_nil i.change_message_for(:category_id) # This attribute should be skipped because it's a foreign key for the belongs to association
+    assert i.change_messages.empty? # The belongs_to association (and it's foreign key) should be ignored by default
   end
   
   def test_unwatching
