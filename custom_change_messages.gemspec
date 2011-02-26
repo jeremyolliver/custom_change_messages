@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
   s.files += ["lib/custom_change_messages.rb", "lib/custom_change_messages/active_record.rb"]
   s.test_files = ["test/active_record_test.rb", "test/custom_change_messages_test.rb", "test/database.yml", "test/schema.rb", "test/test_helper.rb"]
 
-  s.add_dependency("activerecord", [">= 2.0.0"])
+  s.add_dependency("activerecord", [">= 2.1.0"])
 
   s.add_development_dependency("sqlite3-ruby", [">= 1.2.5"])
 end
