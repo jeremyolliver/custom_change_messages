@@ -5,15 +5,12 @@ load_schema
 class Person < ActiveRecord::Base
   custom_message_for :username, :as => "Name"
   skip_message_for :internal_calculation
-  
 end
 
 class Category < ActiveRecord::Base
-  
   def to_s
     name
   end
-  
 end
 
 class Item < ActiveRecord::Base
@@ -111,7 +108,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     today = Date.today.strftime(Item::DATEFORMAT)
     tomorrow = Date.tomorrow.strftime(Item::DATEFORMAT)
     
-    assert_equal "Description has changed from 'Nice and easy' to 'This task is difficult, might need some help', Person has changed from 'Jeremy' to 'Optimus', and Due Date has been rescheduled from '#{today}' to '#{tomorrow}'", \
+    assert_equal "Due Date has been rescheduled from '#{today}' to '#{tomorrow}', Person has changed from 'Jeremy' to 'Optimus', and Description has changed from 'Nice and easy' to 'This task is difficult, might need some help'", \
     i.change_messages.to_sentence
   end
   
