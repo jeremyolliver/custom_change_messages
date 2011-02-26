@@ -29,9 +29,18 @@ change_messages # Returns an array of the messages for each changed attribute
 Installation
 ============
 
-installation: script/plugin install git://github.com/jeremyolliver/custom_message_changes.git
+gem install custom_change_messages
 
-Requirements: rails 2.1 or greater, if you use an earlier version you can try using http://code.bitsweat.net/svn/dirty which backports the ActiveRecord::Dirty code that this plugin depends on to earlier rails versions.
+Rails 2.X
+# config/environment.rb
+config.gem "custom_change_messages"
+
+Rails 3.X
+# Gemfile
+gem "custom_change_messages"
+
+
+Requirements: active record, version 2.1 or greater, if you use an earlier version you can try using http://code.bitsweat.net/svn/dirty which backports the ActiveRecord::Dirty code that this gem depends on to earlier rails versions.
 
 
 Detailed Example
