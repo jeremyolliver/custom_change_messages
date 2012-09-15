@@ -26,6 +26,7 @@ API
 ActiveRecord extensions:
 
 `change_message_for(attribute)` # Returns a string message representation of the attribute that has changed
+
 `change_messages` # Returns an array of the messages for each changed attribute
 
 Installation
@@ -67,6 +68,8 @@ class ItemsController < ApplicationController
 
 end
 ```
+
+In this example we use `attributes=` instead of `update_attributes` because the change\_messages functionality is required to be called before you save the object, detecting what is changed from the state read from the database. For more advanced uses, you can add in `before_save` hooks to log changed details for you.
 
 `@item.change_messages.to_sentence` will return human readable mesages in a string format such as:
 => "Description has changed from 'Nice and easy' to 'This task is now rather long and arduous', User has changed from 'Jeremy' to 'Guy', and Due Date has been rescheduled from '09/11/2008' to '10/11/2008'"
