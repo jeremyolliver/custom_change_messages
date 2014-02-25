@@ -1,6 +1,8 @@
 CustomChangeMessages
 ====================
 
+[![Code Climate](https://codeclimate.com/repos/530c01aae30ba04b780004f8/badges/90ec4dc6e56ffd805864/gpa.png)](https://codeclimate.com/repos/530c01aae30ba04b780004f8/feed)
+
 CustomChangeMessages is a rails plugin for providing a nicely formatted log message recording any edits made to an active record object.
 This is based off of the ActiveRecord::Dirty module, making this plugin compatible with rails versions 2.1 and up. There is little to no configuration required, with all columns included by default (except for id, and created\_at, updated\_at timestamps), and belongs_to associations handled nicely with the default options configurable.
 
